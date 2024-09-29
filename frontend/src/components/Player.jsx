@@ -383,6 +383,7 @@ const Player = () => {
               backgroundColor: "#e4e4e4",
               borderRadius: 16,
               display: "flex",
+              flexDirection: "column",
             }}
           >
             <Divider style={{ height: 20 }}>Информация</Divider>
