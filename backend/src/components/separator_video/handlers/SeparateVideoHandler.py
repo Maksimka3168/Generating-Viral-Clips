@@ -66,53 +66,31 @@ class SeparateVideoHandler(IEventHandler[StartSeparateVideoMessageModel]):
                 None, transcribe_video_bytes, video_bytes, self.__subtitles_model_factory()
             ) # Text
 
-            duration_ = await loop.run_in_executor(None, get_video_duration_from_bytes, video_bytes)
+            video_bytes_with_subtitles = await loop.run_in_executor(
+                None, make_subtitled_video, video_bytes, self.__subtitles_model_factory()
+            )
 
-            duration = int(duration_)
+            metrics = await loop.run_in_executor(
+                None, start_proccess, subtitles_text
+            )
 
-            top_n = ceil(duration / 60)
+            metrics_fields = await loop.run_in_executor(
+                None, generate_fields, subtitles_text
+            )
 
-            list_phrases = await loop.run_in_executor(None, get_top_dialogues_tfidf,
-                                                       subtitles_text, top_n)
+            await s3_service.put_object(
+                bucket_name="test-default-bucket",
+                object_name=f"{index}_{video_message.file_key}",
+                data=video_bytes_with_subtitles,
+                acl='public-read'
+            )
 
-            list_clips = await loop.run_in_executor(None, run_process, video_bytes,
-                                                       list_phrases, subtitles_text)
-
-            for index_2, (clip_info, clip_dialogue) in enumerate(list_clips):
-                video_bytes_with_subtitles = await loop.run_in_executor(
-                    None, make_subtitled_video, clip_info, self.__subtitles_model_factory()
-                )
-
-                metrics = await loop.run_in_executor(
-                    None, start_proccess, clip_dialogue
-                )
-
-                metrics_fields = await loop.run_in_executor(
-                    None, generate_fields, clip_dialogue
-                )
-
-                if metrics_fields:
-                    xml_text = f"<ROOT>{metrics_fields}</ROOT>"
-
-                    root = ET.fromstring(xml_text)
-
-                    result = {child.tag.lower(): child.text.strip() for child in root}
-
-                    metrics_fields = result
-
-                await s3_service.put_object(
-                    bucket_name="test-default-bucket",
-                    object_name=f"{index}_{index_2}_{video_message.file_key}",
-                    data=video_bytes_with_subtitles,
-                    acl='public-read'
-                )
-
-                await self.__add_processed_videos_function(
-                    request_id=str(video_message.message_id),
-                    filekey=f"{index}_{video_message.file_key}",
-                    metrics=str(metrics),
-                    metrics_fields=str(metrics_fields)
-                )
+            await self.__add_processed_videos_function(
+                request_id=str(video_message.message_id),
+                filekey=f"{index}_{video_message.file_key}",
+                metrics=str(metrics),
+                metrics_fields=str(metrics_fields)
+            )
 
         await self.__change_status_request_function(
             request_id=str(video_message.message_id)

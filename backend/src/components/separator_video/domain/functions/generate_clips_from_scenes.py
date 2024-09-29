@@ -118,10 +118,7 @@ def save_clips_without_subs(clip_info, video_bytes: bytes):
 
 
 def run_process(video_bytes: bytes, top_dialogues_list: list, subtitles: str) -> list:
-    print(top_dialogues_list)
-    print(subtitles)
     clips_info = clips_info_generate(top_dialogues_list, subtitles)
-    print(clips_info)
     clips = []
     for clip_info in clips_info:
         clip_bytes, clip_dialogue = save_clips_without_subs(clip_info, video_bytes)
